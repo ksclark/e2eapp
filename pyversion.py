@@ -1,5 +1,6 @@
 """Print Python version and OS name/version."""
 import platform
+import shlex
 import sys
 
 
@@ -8,10 +9,12 @@ def get_os_info():
     system = platform.system()
     if system == "Darwin":
         os_name = "macOS"
-        version = platform.mac_ver()[0]  # e.g. '14.4'
+        # mac_ver()[0] can return "" in some CI/virtualized environments
+        version = platform.mac_ver()[0] or platform.release()
     elif system == "Windows":
         os_name = "Windows"
-        version = platform.win32_ver()[1]  # e.g. '10.0.19041'
+        # win32_ver()[1] can return "" in some CI/virtualized environments
+        version = platform.win32_ver()[1] or platform.release()
         # Trim to major.minor if it's long
         parts = version.split(".")
         version = ".".join(parts[:2]) if len(parts) >= 2 else version
@@ -25,7 +28,12 @@ def get_os_info():
                     line = line.strip()
                     if "=" in line:
                         k, _, v = line.partition("=")
-                        info[k] = v.strip('"')
+                        # Use shlex to correctly handle shell-quoted values
+                        # (e.g. escaped inner quotes: NAME="Ubuntu \"Focal\" 20.04")
+                        try:
+                            info[k] = shlex.split(v)[0]
+                        except ValueError:
+                            info[k] = v.strip('"')
             os_name = info.get("NAME", "Linux")
             version = info.get("VERSION_ID", platform.release())
         except OSError:
