@@ -102,6 +102,26 @@ def test_get_os_info_linux_no_version_id(monkeypatch, tmp_path):
     assert result == "Arch Linux 6.8.9-arch1-1"
 
 
+def test_get_os_info_linux_empty_name_value(monkeypatch, tmp_path):
+    """Empty value (e.g. NAME=) must not raise IndexError — falls back to strip."""
+    os_release = tmp_path / "os-release"
+    os_release.write_text("NAME=\nVERSION_ID=\n")
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(platform, "release", lambda: "5.15.0")
+    original_open = open
+
+    def mock_open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return original_open(str(os_release), *args, **kwargs)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", mock_open)
+    # Should not raise; empty NAME= is skipped, so .get() default "Linux" applies.
+    # Empty VERSION_ID= is also skipped, so version falls back to platform.release().
+    result = get_os_info()
+    assert result == "Linux 5.15.0"
+
+
 def test_get_os_info_linux_no_os_release(monkeypatch):
     monkeypatch.setattr(platform, "system", lambda: "Linux")
     monkeypatch.setattr(platform, "release", lambda: "5.15.0")
