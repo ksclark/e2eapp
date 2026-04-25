@@ -1,4 +1,5 @@
 """Tests for pyversion.py OS detection."""
+import json
 import platform
 import sys
 from unittest import mock
@@ -131,8 +132,102 @@ def test_main_output(monkeypatch, capsys):
     monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
     monkeypatch.setattr(platform, "system", lambda: "Darwin")
     monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
-    main()
+    main([])
     captured = capsys.readouterr()
     lines = captured.out.strip().splitlines()
     assert lines[0] == "3.11.4"
     assert lines[1] == "OS: macOS 14.4"
+
+
+# ---------------------------------------------------------------------------
+# --json flag tests
+# ---------------------------------------------------------------------------
+
+def test_main_json_output_is_valid_json(monkeypatch, capsys):
+    """--json flag produces parseable JSON on stdout."""
+    monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
+    monkeypatch.setattr(platform, "python_version_tuple", lambda: ("3", "11", "4"))
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
+    main(["--json"])
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)  # raises if not valid JSON
+    assert data is not None
+
+
+def test_main_json_required_keys(monkeypatch, capsys):
+    """--json output contains all required keys."""
+    monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
+    monkeypatch.setattr(platform, "python_version_tuple", lambda: ("3", "11", "4"))
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
+    main(["--json"])
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    for key in ("python_version", "python_major", "python_minor", "python_patch", "os"):
+        assert key in data, f"Missing key: {key}"
+
+
+def test_main_json_field_types(monkeypatch, capsys):
+    """--json output fields have the correct types."""
+    monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
+    monkeypatch.setattr(platform, "python_version_tuple", lambda: ("3", "11", "4"))
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
+    main(["--json"])
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert isinstance(data["python_version"], str)
+    assert isinstance(data["python_major"], int)
+    assert isinstance(data["python_minor"], int)
+    assert isinstance(data["python_patch"], int)
+    assert isinstance(data["os"], str)
+
+
+def test_main_json_field_values(monkeypatch, capsys):
+    """--json output contains the expected field values."""
+    monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
+    monkeypatch.setattr(platform, "python_version_tuple", lambda: ("3", "11", "4"))
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
+    main(["--json"])
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["python_version"] == "3.11.4"
+    assert data["python_major"] == 3
+    assert data["python_minor"] == 11
+    assert data["python_patch"] == 4
+    assert data["os"] == "macOS 14.4"
+
+
+def test_main_json_no_text_output(monkeypatch, capsys):
+    """--json flag does NOT produce the plain-text lines."""
+    monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
+    monkeypatch.setattr(platform, "python_version_tuple", lambda: ("3", "11", "4"))
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
+    main(["--json"])
+    captured = capsys.readouterr()
+    assert "OS:" not in captured.out
+    # Output should be a single line of JSON
+    lines = captured.out.strip().splitlines()
+    assert len(lines) == 1
+
+
+def test_main_no_json_flag_unchanged(monkeypatch, capsys):
+    """Default (no --json) behavior is unchanged."""
+    monkeypatch.setattr(platform, "python_version", lambda: "3.11.4")
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.4", ("", "", ""), ""))
+    main([])
+    captured = capsys.readouterr()
+    lines = captured.out.strip().splitlines()
+    assert lines[0] == "3.11.4"
+    assert lines[1] == "OS: macOS 14.4"
+
+
+def test_main_unknown_flag_exits_nonzero():
+    """Unknown/invalid flags must exit non-zero."""
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--invalid-flag-xyz"])
+    assert exc_info.value.code != 0
