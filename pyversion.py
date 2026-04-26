@@ -1,4 +1,6 @@
 """Print Python version and OS name/version."""
+import argparse
+import json
 import platform
 import shlex
 import sys
@@ -31,9 +33,13 @@ def get_os_info():
                         # Use shlex to correctly handle shell-quoted values
                         # (e.g. escaped inner quotes: NAME="Ubuntu \"Focal\" 20.04")
                         try:
-                            info[k] = shlex.split(v)[0]
-                        except ValueError:
-                            info[k] = v.strip('"')
+                            parsed = shlex.split(v)[0]
+                        except (ValueError, IndexError):
+                            # ValueError: malformed shell quoting
+                            # IndexError: empty value (e.g. NAME=)
+                            parsed = v.strip('"')
+                        if parsed:  # skip empty values so .get() defaults apply
+                            info[k] = parsed
             os_name = info.get("NAME", "Linux")
             version = info.get("VERSION_ID", platform.release())
         except OSError:
@@ -45,9 +51,30 @@ def get_os_info():
     return f"{os_name} {version}".strip()
 
 
-def main():
-    print(platform.python_version())
-    print(f"OS: {get_os_info()}")
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Print Python version and OS information."
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output version and OS info as a JSON object.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.json:
+        major, minor, patch = platform.python_version_tuple()
+        data = {
+            "python_version": platform.python_version(),
+            "python_major": int(major),
+            "python_minor": int(minor),
+            "python_patch": int(patch),
+            "os": get_os_info(),
+        }
+        print(json.dumps(data, ensure_ascii=False))
+    else:
+        print(platform.python_version())
+        print(f"OS: {get_os_info()}")
 
 
 if __name__ == "__main__":
