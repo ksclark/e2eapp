@@ -13,6 +13,11 @@ fi
 
 flag="${1:-}"
 
+if [ "$#" -gt 1 ]; then
+    echo "Error: unexpected arguments" >&2
+    exit 1
+fi
+
 if [ "$flag" = "--json" ]; then
     "$python_cmd" -c "import platform,json; v=platform.python_version_tuple(); s=platform.system(); r=(platform.mac_ver()[0] or platform.release()) if s=='Darwin' else (platform.win32_ver()[1] or platform.release()) if s=='Windows' else platform.release(); n='macOS' if s=='Darwin' else ('Windows' if s=='Windows' else s); print(json.dumps({'python_version':platform.python_version(),'python_major':int(v[0]),'python_minor':int(v[1]),'python_patch':int(v[2]),'os':n+' '+r}))"
 elif [ -n "$flag" ]; then
