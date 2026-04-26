@@ -3,6 +3,3 @@
 .dolt/
 *.db
 .beads-credential-key
-
-# Beads tracker artifacts — do not commit copies to repo root
-issues.jsonl
