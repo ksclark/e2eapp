@@ -3,7 +3,6 @@ import argparse
 import json
 import platform
 import shlex
-import sys
 
 
 def get_os_info():
@@ -31,14 +30,14 @@ def get_os_info():
                     if "=" in line:
                         k, _, v = line.partition("=")
                         # Use shlex to correctly handle shell-quoted values
-                        # (e.g. escaped inner quotes: NAME="Ubuntu \"Focal\" 20.04")
+                        # (e.g. escaped inner quotes: NAME="Ubuntu \"Focal\"")
                         try:
                             parsed = shlex.split(v)[0]
                         except (ValueError, IndexError):
                             # ValueError: malformed shell quoting
                             # IndexError: empty value (e.g. NAME=)
                             parsed = v.strip('"')
-                        if parsed:  # skip empty values so .get() defaults apply
+                        if parsed:  # skip empty values
                             info[k] = parsed
             os_name = info.get("NAME", "Linux")
             version = info.get("VERSION_ID", platform.release())
@@ -60,9 +59,16 @@ def main(argv=None):
         action="store_true",
         help="Output version and OS info as a JSON object.",
     )
+    parser.add_argument(
+        "--hello",
+        action="store_true",
+        help="Print Hello, World! to stdout.",
+    )
     args = parser.parse_args(argv)
 
-    if args.json:
+    if args.hello:
+        print("Hello, World!")
+    elif args.json:
         major, minor, patch = platform.python_version_tuple()
         data = {
             "python_version": platform.python_version(),
